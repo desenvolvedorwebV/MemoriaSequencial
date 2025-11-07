@@ -13,20 +13,21 @@
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    min-height: 98vh;
+    min-height: 100vh;
     padding: 20px;
     /*overflow: hidden;*/
   }
 
   #footer {
-    margin-top: auto;
-    /*padding: 50px;*/
-    min-height: 2vh;
-    text-align: center;
-    font-size: 0.9em;
-    color: #fff;
-    opacity: 0.8;
-  }
+  margin-top: auto; /* empurra o footer pro final da página */
+  text-align: center;
+  font-size: 0.9em;
+  color: #fff;
+  opacity: 0.8;
+  padding: 10px 0;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.2); /* opcional: dá um destaque leve */
+}
 
   #hud {
     display: flex;
@@ -376,9 +377,10 @@
 
     startGame();
   </script>
+  <footer id="footer">© 2025 Viniciusav</footer>
 </body>
-<footer id="footer">© 2025 Viniciusav</footer>
 </html>
+
 
 
 
