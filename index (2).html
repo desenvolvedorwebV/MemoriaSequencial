@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jogo da Sequência</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #111, #333);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 100vh;
+    padding: 20px;
+    overflow: hidden;
+  }
+
+  #footer {
+    margin-top: auto;
+    padding: 30px;
+    text-align: center;
+    font-size: 0.9em;
+    color: #fff;
+    opacity: 0.8;
+  }
+
+  #hud {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    max-width: 400px;
+    margin-bottom: 20px;
+    font-size: 1.2em;
+  }
+
+  #sound-btn {
+    cursor: pointer;
+    user-select: none;
+    font-size: 1.4em;
+    transition: transform 0.2s, opacity 0.2s;
+  }
+
+  #sound-btn:hover {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+
+  #message {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.7);
+    padding: 20px 30px;
+    border-radius: 12px;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+    font-size: 1.5em;
+    text-align: center;
+    color: #fff;
+    opacity: 0;
+    transition: opacity 0.5s;
+    z-index: 1000;
+    pointer-events: none; /* não bloqueia cliques no jogo */
+  }
+
+  #message.visible {
+    opacity: 1;
+  }
+
+  #game {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    width: 100%;
+    max-width: 400px;
+    justify-content: center; /* centraliza horizontalmente as células */
+  justify-items: center;   /* centraliza o conteúdo (as .circle) */
+  }
+
+  .circle {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 50%;
+    perspective: 1000px;
+    cursor: pointer;
+  }
+
+  .inner {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    transition: transform 0.5s;
+    transform-style: preserve-3d;
+  }
+
+  .circle.flipped .inner {
+    transform: rotateY(180deg);
+  }
+
+  .front, .back {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    backface-visibility: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2em;
+  }
+
+  .front {
+    background: #ccc;
+    color: #000;
+    transform: rotateY(180deg);
+  }
+
+  .back {
+    background: #555;
+  }
+
+  .correct .front {
+    background: #4caf50;
+    color: white;
+  }
+
+  .wrong .front {
+    background: #e53935;
+    color: white;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.2; transform: scale(0.9); }
+  }
+
+  .blink {
+    animation: blink 0.4s ease-in-out;
+  }
+
+  .shake {
+    animation: shake 0.3s;
+  }
+
+  /* Partículas douradas */
+  .particle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: radial-gradient(circle, gold, transparent);
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    animation: sparkle 1s ease-out forwards;
+  }
+
+  @keyframes sparkle {
+    0% {
+      transform: scale(0.3) translate(0, 0);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(0.8) translate(var(--x), var(--y));
+      opacity: 0;
+    }
+  }
+</style>
+</head>
+<body>
+  <div id="hud">
+    <div id="level">Nível:<br>1</div>
+    <div id="timer">Tempo:<br>200</div>
+    <div id="tries">Tentativas:<br>100</div>
+    <div id="sound-btn" title="Ativar/Desativar Som">🔊</div>
+  </div>
+
+  <div id="message"></div>
+  <div id="game"></div>
+
+  <script>
+    const game = document.getElementById('game');
+    const levelDisplay = document.getElementById('level');
+    const timerDisplay = document.getElementById('timer');
+    const triesDisplay = document.getElementById('tries');
+    const message = document.getElementById('message');
+
+    let level = 1;
+    let tries = 100;
+    let time = 200;
+    let totalCircles = 6;
+    let nextNumber = 1;
+    let timer;
+    let levelsSinceBonus = 0;
+    let soundEnabled = true;
+
+    const soundBtn = document.getElementById('sound-btn');
+    soundBtn.addEventListener('click', () => {
+      soundEnabled = !soundEnabled;
+      soundBtn.textContent = soundEnabled ? '🔊' : '🔇';
+    });
+
+    function startGame() {
+      nextNumber = 1;
+      game.innerHTML = '';
+      message.classList.remove('visible');
+      //SEMPRE 9 ESFERAS
+      //const numbers = shuffle([...Array(9).keys()].map(n => n + 1));
+
+      //COMEÇA COM 6 ESFERAS, AUMENTA 1 A CADA 5 NÍVEIS, NO MÁXIMO CHEGANDO A 12.
+      totalCircles = Math.min(6 + Math.floor((level - 1) / 5), 12);
+      const numbers = shuffle([...Array(totalCircles).keys()].map(n => n + 1));
+      numbers.forEach(num => {
+        const circle = document.createElement('div');
+        circle.className = 'circle';
+        circle.innerHTML = `
+          <div class="inner">
+            <div class="front">${num}</div>
+            <div class="back"></div>
+          </div>`;
+        circle.addEventListener('click', () => handleClick(circle, num));
+        game.appendChild(circle);
+      });
+      resetTimer();
+    }
+
+    function handleClick(circle, num) {
+      const isFlipped = circle.classList.contains('flipped');
+      if (isFlipped) return;
+
+      circle.classList.add('flipped');
+      if (num === nextNumber) {
+        circle.classList.add('correct');
+        nextNumber++;
+        playSound('certo');
+        if (nextNumber > totalCircles) {
+          showLevelComplete();
+        }
+      } else {
+        playSound('errado');
+        circle.classList.add('wrong');
+        tries--;
+        triesDisplay.innerHTML = `Tentativas:<br>${tries}`;
+        if (tries <= 0) {
+          alert('Fim de jogo!');
+          resetAll();
+        } else {
+          game.classList.add('shake');
+          setTimeout(() => {
+            game.classList.remove('shake');
+            resetCircles();
+          }, 600);
+        }
+      }
+    }
+
+    function showLevelComplete() {
+      playSound('levelcompleto');
+      message.textContent = `🎉 Parabéns! Você concluiu o nível ${level}!`;
+      message.classList.add('visible');
+      spawnParticles(50); // efeito visual de partículas douradas
+
+      const circles = document.querySelectorAll('.circle');
+      circles.forEach((c, i) => {
+        setTimeout(() => {
+          c.classList.add('blink');
+          setTimeout(() => c.classList.remove('blink'), 400);
+        }, i * 100);
+      });
+
+      clearInterval(timer);
+
+      setTimeout(() => {
+        level++;
+        levelDisplay.innerHTML = `Nível:<br>${level}`;
+        levelsSinceBonus++;
+
+        // Ganha tentativas a cada 1 ou 2 níveis
+        if (levelsSinceBonus >= Math.floor(Math.random() * 2) + 1) {
+          const bonus = 3;
+          tries += bonus;
+          triesDisplay.innerHTML  = `Tentativas:<br>${tries}`;
+          message.innerHTML += `<br>💪 Você ganhou +${bonus} tentativas!`;
+          levelsSinceBonus = 0;
+
+          spawnParticles(80); // mais partículas ao ganhar bônus
+        }
+
+        setTimeout(() => {
+          message.classList.remove('visible');
+          startGame();
+        }, 1600);
+      }, 1800);
+    }
+
+    function spawnParticles(amount) {
+      for (let i = 0; i < amount; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+
+        // Direções e distâncias aleatórias
+        const angle = Math.random() * 2 * Math.PI;
+        const distance = 80 + Math.random() * 80;
+        const x = Math.cos(angle) * distance + 'px';
+        const y = Math.sin(angle) * distance + 'px';
+        particle.style.setProperty('--x', x);
+        particle.style.setProperty('--y', y);
+
+        // Posição inicial central
+        particle.style.left = '50%';
+        particle.style.top = '50%';
+        particle.style.transform = 'translate(-50%, -50%)';
+
+        document.body.appendChild(particle);
+
+        // Remover após a animação
+        setTimeout(() => particle.remove(), 1000);
+      }
+    }
+
+    function resetCircles() {
+      document.querySelectorAll('.circle').forEach(c => {
+        c.classList.remove('flipped', 'wrong', 'correct');
+      });
+      nextNumber = 1;
+    }
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function playSound(nome) {
+      if (!soundEnabled) return;
+      const audio = new Audio(`${nome}.mp3`); // Exemplo: "acerto.mp3"
+      audio.play().catch(err => {
+        console.warn("Falha ao reproduzir áudio:", err);
+      });
+    }
+
+    function resetTimer() {
+      clearInterval(timer);
+      time = 200;
+      timerDisplay.innerHTML = `Tempo:<br>${time}`;
+      timer = setInterval(() => {
+        time--;
+        timerDisplay.innerHTML = `Tempo:<br>${time}`;
+        if (time <= 0) {
+          clearInterval(timer);
+          alert('Tempo esgotado!');
+          resetAll();
+        }
+      }, 1000);
+    }
+
+    function resetAll() {
+      level = 1;
+      tries = 100;
+      levelsSinceBonus = 0;
+      levelDisplay.innerHTML = `Nível:<br>${level}`;
+      triesDisplay.innerHTML = `Tentativas:<br>${tries}`;
+      startGame();
+    }
+
+    startGame();
+  </script>
+</body>
+<footer id="footer">© 2025 Viniciusav</footer>
+</html>
