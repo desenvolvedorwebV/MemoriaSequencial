@@ -9,6 +9,14 @@
   height: 98%;
   margin: 0;
   padding: 0;
+    overflow: hidden; /* evita rolagem total */
+  touch-action: none; /* bloqueia gestos de arrastar no celular */
+}
+
+* {
+  user-select: none; /* impede seleção de texto */
+  -webkit-user-drag: none; /* impede arrastar imagens no Safari */
+  -webkit-tap-highlight-color: transparent; /* remove o flash azul do Android */
 }
   body {
     font-family: Arial, sans-serif;
@@ -385,6 +393,7 @@
   <footer id="footer">© 2025 Viniciusav</footer>
 </body>
 </html>
+
 
 
 
